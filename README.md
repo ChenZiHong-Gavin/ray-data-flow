@@ -71,3 +71,7 @@ results = engine.execute(ds)  # 只会在取叶子节点结果时触发整个 DA
 - 数据流执行：根据节点类型应用 Ray Data 的 `map`/`filter`/`flat_map`/`map_batches` 等操作。
 - 多依赖合并：当存在多个上游时，使用 `union` 合并数据集（要求 Schema 一致）。
 - 触发与收集：仅在读取叶子节点结果时触发整链计算，最终返回 `{叶子节点ID: 结果}` 的字典。
+
+任务流示例：
+<img width="400" alt="image" src="https://github.com/user-attachments/assets/d40b158e-e04f-4714-9bc9-a510f2913320" />
+
