@@ -4,6 +4,7 @@ import ray
 import ray.data
 from collections import deque, defaultdict
 from typing import List, Dict, Any, Set, Callable
+from functools import wraps
 
 from .bases import Config, Node
 
@@ -112,6 +113,7 @@ class Engine:
         
         else:
             # 包装函数以处理 kwargs
+            @wraps(op_handler)
             def func_wrapper(row_or_batch: Dict[str, Any]) -> Dict[str, Any]:
                 return op_handler(row_or_batch, **node_params)
             
@@ -135,7 +137,8 @@ class Engine:
             else:
                 raise ValueError(f"未知任务类型 {node.type}")
 
-    def _find_leaf_nodes(self, nodes: List[Node]) -> Set[str]:
+    @staticmethod
+    def _find_leaf_nodes(nodes: List[Node]) -> Set[str]:
         """找到所有叶子节点（无后续依赖）"""
         all_ids = {n.id for n in nodes}
         deps_set = set()

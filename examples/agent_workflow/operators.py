@@ -15,7 +15,7 @@ class BertIntentClassifier:
     """
     def __init__(self, model_version: str):
         self.pid = os.getpid()
-        print(f"[PID:{self.pid}] Loading BERT Classifier ({model_version})... (耗时操作)")
+        print(f"[PID:{self.pid}] Loading BERT Classifier ({model_version})...")
         # 模拟加载模型耗时
         time.sleep(2.0) 
         self.model_version = model_version
@@ -59,7 +59,7 @@ class LLMResponder:
     """
     def __init__(self, model_name: str, temperature: float = 0.7):
         self.pid = os.getpid()
-        print(f"[PID:{self.pid}] Loading LLM ({model_name})... (显存占用大)")
+        print(f"[PID:{self.pid}] Loading LLM ({model_name})...")
         time.sleep(2.0)
         self.model_name = model_name
         print(f"[PID:{self.pid}] LLM Ready!")
