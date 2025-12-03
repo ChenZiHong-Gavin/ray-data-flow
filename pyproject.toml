@@ -1,1 +1,28 @@
-ray
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ray-data-flow"
+version = "0.1.0"
+description = "基于 Ray Data 的轻量级 DAG 工作流执行引擎，业务逻辑与资源分配解耦"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "UNLICENSED" }
+authors = [{ name = "Shanghai AI Lab" }]
+keywords = ["ray", "ray data", "workflow", "dag", "etl", "agent"]
+dependencies = [
+  "ray>=2.9",
+  "pandas>=2.0",
+  "pydantic>=2.0",
+  "pyarrow>=12.0",
+  "tqdm>=4.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/your-org/ray-data-flow"
+Repository = "https://github.com/your-org/ray-data-flow"
+
+[tool.setuptools.packages.find]
+include = ["ray_data_flow*"]
+exclude = ["examples*"]
