@@ -1,3 +1,5 @@
+import inspect
+import logging
 import ray
 import ray.data
 from collections import deque, defaultdict
@@ -17,7 +19,12 @@ class Engine:
         self.datasets: Dict[str, ray.data.Dataset] = {}
 
         if not ray.is_initialized():
-            ray.init(ignore_reinit_error=True, **ray_init_kwargs)
+            context = ray.init(
+                ignore_reinit_error=True,
+                logging_level=logging.ERROR,
+                log_to_driver=True,
+                **ray_init_kwargs)
+            print(f"Ray Dashboard URL: {context.dashboard_url}")
 
     @staticmethod
     def _topo_sort(nodes: List[Node]) -> List[Node]:
@@ -84,32 +91,49 @@ class Engine:
         if node.func_name not in self.functions:
             raise ValueError(f"函数 {node.func_name} 未注册")
 
-        raw_func = self.functions[node.func_name]
+        op_handler = self.functions[node.func_name]
         node_params = node.params
 
-        # 包装函数以处理 kwargs
-        def func_wrapper(row_or_batch: Dict[str, Any]) -> Dict[str, Any]:
-            return raw_func(row_or_batch, **node_params)
-        
-        # 应用算子
-        if node.type == "map":
-            self.datasets[node.id] = input_ds.map(func_wrapper)
-        elif node.type == "filter":
-            self.datasets[node.id] = input_ds.filter(func_wrapper)
-        elif node.type == "flatmap":
-            # flatmap要求函数返回可迭代对象
-            self.datasets[node.id] = input_ds.flat_map(func_wrapper)
-        # ]Ray Data 为了高性能，默认在 map_batches 中传递的数据格式是 列式（Columnar） 的（即 Dict[str, List]）
-        elif node.type == "aggregate":
-            # 全局聚合
-            self.datasets[node.id] = input_ds.repartition(1).map_batches(
-                lambda batch: func_wrapper(batch),
-                batch_format="default"
+        if inspect.isclass(op_handler):
+            # 获取并发配置，默认 1 个副本
+            replicas = node_params.pop("replicas", 1)
+            # 获取 batch_siz
+            batch_size = node_params.pop("batch_size", "default")
+            # 获取计算资源配置
+            compute_resources = node_params.pop("compute_resources", None)
+
+            self.datasets[node.id] = input_ds.map_batches(
+                op_handler,
+                compute=ray.data.ActorPoolStrategy(min_size=1, max_size=replicas),
+                batch_size=batch_size,
+                num_gpus=compute_resources.get("num_gpus", 0) if compute_resources else 0,
+                fn_constructor_kwargs=node_params # 剩下的参数传给 __init__
             )
-        elif node.type == "map_batch":
-            self.datasets[node.id] = input_ds.map_batches(func_wrapper)
+        
         else:
-            raise ValueError(f"未知任务类型 {node.type}")
+            # 包装函数以处理 kwargs
+            def func_wrapper(row_or_batch: Dict[str, Any]) -> Dict[str, Any]:
+                return op_handler(row_or_batch, **node_params)
+            
+            # 应用算子
+            if node.type == "map":
+                self.datasets[node.id] = input_ds.map(func_wrapper)
+            elif node.type == "filter":
+                self.datasets[node.id] = input_ds.filter(func_wrapper)
+            elif node.type == "flatmap":
+                # flatmap要求函数返回可迭代对象
+                self.datasets[node.id] = input_ds.flat_map(func_wrapper)
+            # ]Ray Data 为了高性能，默认在 map_batches 中传递的数据格式是 列式（Columnar） 的（即 Dict[str, List]）
+            elif node.type == "aggregate":
+                # 全局聚合
+                self.datasets[node.id] = input_ds.repartition(1).map_batches(
+                    lambda batch: func_wrapper(batch),
+                    batch_format="default"
+                )
+            elif node.type == "map_batch":
+                self.datasets[node.id] = input_ds.map_batches(func_wrapper)
+            else:
+                raise ValueError(f"未知任务类型 {node.type}")
 
     def _find_leaf_nodes(self, nodes: List[Node]) -> Set[str]:
         """找到所有叶子节点（无后续依赖）"""
@@ -138,26 +162,3 @@ class Engine:
         # 4. 触发计算并获取结果
         results = ray.get([_fetch_result.remote(self.datasets[node_id]) for node_id in leaf_nodes])
         return dict(zip(leaf_nodes, results))
-
-
-if __name__ == "__main__":
-    config = {
-        "nodes": [
-            {"id": "node1", "func_name": "func1", "type": "map", "dependencies": [], "params": {"factor": 2}},
-            {"id": "node2", "func_name": "func2", "type": "filter", "dependencies": ["node1"]},
-        ]
-    }
-
-    functions = {
-        "func1": lambda x, factor: {"id": x["id"], "value": x["value"] * factor},
-        "func2": lambda x: x["value"] > 1,
-    }
-
-    engine = Engine(config, functions)
-    results = engine.execute()
-    print(results)
-
-# TODO： Pydantic 验证
-# TODO： 使用示例：etl、agent_workflow
-# TODO: 性能分析
-# TODO： 监控指标（如处理速度、延迟、错误率）

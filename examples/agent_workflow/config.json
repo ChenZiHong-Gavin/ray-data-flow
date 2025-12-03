@@ -1,0 +1,32 @@
+{
+    "nodes": [
+        {
+            "id": "clean_node",
+            "func_name": "preprocess_text",
+            "type": "map",
+            "dependencies": []
+        },
+        {
+            "id": "classify_node",
+            "func_name": "BertIntentClassifier", 
+            "type": "map_batch",                
+            "dependencies": ["clean_node"],
+            "params": {
+                "model_version": "bert-base-v1",
+                "replicas": 2,
+                "batch_size": 4
+            }
+        },
+        {
+            "id": "generate_node",
+            "func_name": "LLMResponder",
+            "type": "map_batch",
+            "dependencies": ["classify_node"],
+            "params": {
+                "model_name": "DeepSeek-Lite",
+                "replicas": 2,
+                "batch_size": 4
+            }
+        }
+    ]
+}

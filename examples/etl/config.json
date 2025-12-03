@@ -1,0 +1,49 @@
+{
+  "nodes": [
+    {
+      "id": "standardize",
+      "func_name": "standardize_currency",
+      "type": "map",
+      "dependencies": []
+    },
+    {
+      "id": "fraud_filter",
+      "func_name": "filter_high_risk",
+      "type": "filter",
+      "dependencies": ["standardize"]
+    },
+    {
+      "id": "fraud_alert",
+      "func_name": "mark_fraud_review",
+      "type": "map",
+      "dependencies": ["fraud_filter"]
+    },
+
+    {
+      "id": "mkt_filter",
+      "func_name": "filter_lifestyle",
+      "type": "filter",
+      "dependencies": ["standardize"]
+    },
+    {
+      "id": "mkt_promo",
+      "func_name": "generate_promo",
+      "type": "map",
+      "dependencies": ["mkt_filter"]
+    },
+
+    {
+      "id": "comp_archive",
+      "func_name": "anonymize_data",
+      "type": "map",
+      "dependencies": ["standardize"]
+    },
+
+    {
+      "id": "central_sink",
+      "func_name": "sink_to_queue",
+      "type": "aggregate",
+      "dependencies": ["fraud_alert", "mkt_promo", "comp_archive"]
+    }
+  ]
+}
