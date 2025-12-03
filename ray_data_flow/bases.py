@@ -20,6 +20,7 @@ class Config(BaseModel):
     nodes: List[Node] = Field(..., min_length=1, description="节点列表")
 
     @field_validator('nodes')
+    @classmethod
     def validate_unique_ids(cls, v: List[Node]) -> List[Node]:
         ids = [node.id for node in v]
         if len(ids) != len(set(ids)):
